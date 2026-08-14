@@ -1,286 +1,55 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Convite - 1 aninho da Ísis</title>
-<style>
-  :root {
-    --cor-fundo: #fff5f7;
-    --cor-primaria: #f7a9c4;
-    --cor-primaria-escura: #e8789e;
-    --cor-lilas: #c9a3d9;
-    --cor-lilas-escura: #9a6bb5;
-    --cor-texto: #5c3d4a;
-    --cor-card: #ffffff;
+require('dotenv').config();
+const express = require('express');
+const { createClient } = require('@supabase/supabase-js');
+
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+
+const app = express();
+app.use(express.json());
+app.use(express.static('public'));
+
+app.post('/api/confirmar', async (req, res) => {
+  const nome = (req.body.nome || '').trim();
+
+  if (!nome) {
+    return res.status(400).json({ erro: 'Nome é obrigatório.' });
   }
 
-  * { box-sizing: border-box; }
+  const { error } = await supabase
+    .from('confirmacoes')
+    .insert([{ nome }]);
 
-  body {
-    margin: 0;
-    font-family: 'Segoe UI', Arial, sans-serif;
-    background:
-      radial-gradient(circle at 15% 10%, rgba(201, 163, 217, 0.35), transparent 45%),
-      radial-gradient(circle at 85% 15%, rgba(247, 169, 196, 0.35), transparent 50%),
-      radial-gradient(circle at 20% 90%, rgba(247, 169, 196, 0.3), transparent 50%),
-      radial-gradient(circle at 90% 85%, rgba(201, 163, 217, 0.3), transparent 45%),
-      var(--cor-fundo);
-    color: var(--cor-texto);
-    display: flex;
-    justify-content: center;
-    padding: 24px 12px;
-    min-height: 100vh;
+  if (error) {
+    console.error('Erro ao salvar confirmação:', error);
+    return res.status(500).json({ erro: 'Não foi possível salvar sua confirmação.' });
   }
 
-  .convite {
-    max-width: 480px;
-    width: 100%;
-    background: var(--cor-card);
-    border-radius: 24px;
-    box-shadow: 0 10px 30px rgba(154, 107, 181, 0.25);
-    overflow: hidden;
+  await notificarWhatsApp(nome);
+
+  res.json({ ok: true });
+});
+
+async function notificarWhatsApp(nome) {
+  const phone = process.env.CALLMEBOT_PHONE;
+  const apikey = process.env.CALLMEBOT_APIKEY;
+
+  if (!phone || !apikey) {
+    console.warn('CallMeBot não configurado — pulando notificação.');
+    return;
   }
 
-  .topo {
-    background: linear-gradient(160deg, #f3e3f7, var(--cor-fundo));
-    text-align: center;
-    padding: 24px 24px 0;
-    position: relative;
+  const texto = `🎉 Nova confirmação de presença!\nNome: ${nome}`;
+
+  const url = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(phone)}&text=${encodeURIComponent(texto)}&apikey=${encodeURIComponent(apikey)}`;
+
+  try {
+    await fetch(url);
+  } catch (err) {
+    console.error('Erro ao notificar WhatsApp:', err);
   }
+}
 
-  .topo img {
-    width: 78%;
-    max-width: 320px;
-    border-radius: 16px;
-    box-shadow: 0 6px 18px rgba(154, 107, 181, 0.3);
-    display: inline-block;
-    position: relative;
-    z-index: 1;
-  }
-
-  .onda-divisoria {
-    display: block;
-    width: 100%;
-    height: 28px;
-    background: var(--cor-fundo);
-  }
-
-  .conteudo {
-    padding: 8px 24px 28px;
-    position: relative;
-    background: #f8f1fb;
-  }
-
-  .detalhe {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 16px;
-    font-size: 16px;
-  }
-
-  .detalhe .icone {
-    font-size: 22px;
-    width: 28px;
-    text-align: center;
-  }
-
-  .mensagem {
-    background: linear-gradient(135deg, #f3e3f7, var(--cor-fundo));
-    border-radius: 14px;
-    padding: 16px;
-    margin: 8px 0 20px;
-    font-size: 15px;
-    line-height: 1.5;
-    text-align: center;
-    border: 1px solid rgba(201, 163, 217, 0.3);
-  }
-
-  form {
-    margin-top: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
-
-  label {
-    font-size: 14px;
-    font-weight: 600;
-    margin-bottom: 4px;
-    display: block;
-  }
-
-  input, textarea, select {
-    width: 100%;
-    padding: 12px 14px;
-    border-radius: 12px;
-    border: 1px solid #f0c4d4;
-    font-size: 15px;
-    background: #fffafb;
-    font-family: inherit;
-  }
-
-  input:focus, textarea:focus, select:focus {
-    outline: none;
-    border-color: var(--cor-primaria-escura);
-  }
-
-  textarea {
-    resize: vertical;
-    min-height: 70px;
-  }
-
-  #campo-presente-outro {
-    margin-top: 10px;
-    display: none;
-  }
-
-  button {
-    margin-top: 8px;
-    padding: 14px;
-    border: none;
-    border-radius: 14px;
-    background: var(--cor-primaria-escura);
-    color: white;
-    font-size: 16px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: transform 0.1s ease;
-  }
-
-  button:hover { opacity: 0.92; }
-  button:active { transform: scale(0.98); }
-  button:disabled { opacity: 0.6; cursor: not-allowed; }
-
-  .status {
-    text-align: center;
-    margin-top: 16px;
-    font-size: 15px;
-    font-weight: 600;
-    min-height: 20px;
-  }
-
-  .status.sucesso { color: #3c8a4c; }
-  .status.erro { color: #c0392b; }
-
-  .rodape {
-    text-align: center;
-    padding: 16px;
-    font-size: 13px;
-    color: #a97b8c;
-  }
-</style>
-</head>
-<body>
-
-<div class="convite">
-  <div class="topo">
-    <img src="capa-isis.jpeg" alt="Ísis - 1 aninho">
-  </div>
-
-  <svg class="onda-divisoria" viewBox="0 0 480 32" preserveAspectRatio="none">
-    <path d="M0,18 C120,32 360,0 480,16 L480,32 L0,32 Z" fill="#f8f1fb"></path>
-  </svg>
-
-  <div class="conteudo">
-    <div class="mensagem">
-      Com muito carinho, convidamos você para celebrar esse dia tão especial com a gente! 🦋
-    </div>
-
-    <div class="detalhe">
-      <span class="icone">📅</span>
-      <span><strong>Data:</strong> 12/09 (sábado)</span>
-    </div>
-    <div class="detalhe">
-      <span class="icone">🕒</span>
-      <span><strong>Horário:</strong> 18h30</span>
-    </div>
-    <div class="detalhe">
-      <span class="icone">📍</span>
-      <span><strong>Local:</strong> Avenida Esplanada, 7 — São Gabriel</span>
-    </div>
-
-    <form id="form-rsvp">
-      <div>
-        <label for="nome">Seu nome</label>
-        <input type="text" id="nome" name="nome" placeholder="Digite seu nome completo" required>
-      </div>
-
-      <div>
-        <label for="presente">Sugestão de presente (opcional)</label>
-        <select id="presente" name="presente">
-          <option value="">Prefiro não informar</option>
-          <option value="Brinquedo interativo">Brinquedo interativo</option>
-          <option value="Roupa tamanho 2 ou 3 anos">Roupa tamanho 2 ou 3 anos</option>
-          <option value="Calçado número 21">Calçado número 21</option>
-          <option value="Outro">Outro</option>
-        </select>
-        <div id="campo-presente-outro">
-          <input type="text" id="presente_outro" name="presente_outro" placeholder="Qual presente você vai trazer?">
-        </div>
-      </div>
-
-      <button type="submit" id="btn-confirmar">Confirmar presença 🎉</button>
-      <div class="status" id="status"></div>
-    </form>
-  </div>
-
-  <div class="rodape">Com carinho, aguardamos você! 🎈</div>
-</div>
-
-<script>
-  const form = document.getElementById('form-rsvp');
-  const status = document.getElementById('status');
-  const btn = document.getElementById('btn-confirmar');
-  const selectPresente = document.getElementById('presente');
-  const campoPresenteOutro = document.getElementById('campo-presente-outro');
-  const inputPresenteOutro = document.getElementById('presente_outro');
-
-  selectPresente.addEventListener('change', () => {
-    campoPresenteOutro.style.display = selectPresente.value === 'Outro' ? 'block' : 'none';
-  });
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    btn.disabled = true;
-    status.textContent = 'Enviando...';
-    status.className = 'status';
-
-    let presente = selectPresente.value;
-    if (presente === 'Outro' && inputPresenteOutro.value.trim()) {
-      presente = `Outro: ${inputPresenteOutro.value.trim()}`;
-    }
-
-    const dados = {
-      nome: document.getElementById('nome').value,
-      presente
-    };
-
-    try {
-      const resp = await fetch('/api/confirmar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dados)
-      });
-      const resultado = await resp.json();
-
-      if (resp.ok) {
-        status.textContent = 'Presença confirmada com sucesso! Até lá 💕';
-        status.className = 'status sucesso';
-        form.reset();
-      } else {
-        status.textContent = resultado.erro || 'Algo deu errado, tente novamente.';
-        status.className = 'status erro';
-        btn.disabled = false;
-      }
-    } catch (err) {
-      status.textContent = 'Não foi possível enviar. Verifique sua conexão.';
-      status.className = 'status erro';
-      btn.disabled = false;
-    }
-  });
-</script>
-
-</body>
-</html>
+const PORTA = process.env.PORT || process.env.PORTA || 3000;
+app.listen(PORTA, () => {
+  console.log(`Convite rodando em http://localhost:${PORTA}`);
+});
