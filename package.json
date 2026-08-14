@@ -1,0 +1,15 @@
+{
+  "name": "convite-aniversario",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Convite online com confirmacao de presenca e notificacao via WhatsApp",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}
